@@ -1,251 +1,330 @@
 #include <bits/stdc++.h>
 #include "DFA.h"
+#include "NFA.h"
 #include "Base.h"
+#include "ContextFreeGammer.h"
 using namespace std;
 
-class ContextFreeGrammer
+bool IsOperator(char c)
+{
+    if (c == '+' || c == '.' || c == '*' || c == '/' || c == '^')
+        return true;
+    return false;
+}
+
+class node
 {
 public:
-    unordered_set<char> variables;
-    unordered_set<char> terminals;
-    char startVariable;
-    unordered_map<char, unordered_set<string>> productionRules;
-    ContextFreeGrammer *contextFreeGrammerForParsing;
-    ContextFreeGrammer *chomsky;
-    ContextFreeGrammer *greibach;
-    bool lambda;
-
-    ContextFreeGrammer(unordered_set<char> variables, unordered_set<char> terminals, char startVariable,
-                       unordered_map<char, unordered_set<string>> productionRules)
-    {
-        this->variables = variables;
-        this->terminals = terminals;
-        this->startVariable = startVariable;
-        this->productionRules = productionRules;
-    }
-
-    ContextFreeGrammer(unordered_set<char> variables, unordered_set<char> terminals, char startVariable)
-    {
-        this->variables = variables;
-        this->terminals = terminals;
-        this->startVariable = startVariable;
-    }
-
-    bool parsingCYK(string s)
-    {
-        if (chomsky == nullptr)
-            makeChomsky();
-
-        unordered_map<string, unordered_set<char>> cyk;
-        for (int i = 0; i < s.length(); i++)
-        {
-            for (pair<char, unordered_set<string>> p : chomsky->productionRules)
-            {
-                if (p.second.find(string(1, s[i])) != p.second.end())
-                {
-                    cyk[string(1, s[i])].insert(p.first);
-                }
-            }
-        }
-
-        for (int i = 0; i < s.length(); i++)
-            for (int j = i; j < s.length(); j++)
-            {
-                string m = s.substr(j - i, i + 1);
-                for (int k = 1; k < i + 1; k++)
-                {
-                    string u = m.substr(0, k);
-                    string v = m.substr(k);
-                    for (char c1 : cyk[u])
-                        for (char c2 : cyk[v])
-                            for (pair<char, unordered_set<string>> p : chomsky->productionRules)
-                                if (p.second.find(string(1, c1) + string(1, c2)) != p.second.end())
-                                    cyk[m].insert(p.first);
-                }
-            }
-
-        if (cyk[s].find(chomsky->startVariable) != cyk[s].end())
-            return true;
-        else
-            return false;
-    }
-
-    bool parsingRegular(string s)
-    {
-
-    }
-
-private:
-    char findVariable()
-    {
-        for (int i = 'A'; i <= 'Z'; i++)
-            if (chomsky->variables.find(char(i)) == chomsky->variables.end())
-                return char(i);
-    }
-
-    void removeLambda()
-    {
-        ContextFreeGrammer *cFG = this->contextFreeGrammerForParsing;
-        cFG->lambda = productionRules[startVariable].find("$") != cFG->productionRules[startVariable].end();
-        for (char variable : cFG->variables)
-            if (cFG->productionRules[variable].find("$") != cFG->productionRules[variable].end())
-                for (pair<char, unordered_set<string>> prRule : cFG->productionRules)
-                {
-                    unordered_set<string> newRule;
-                    for (string s : prRule.second)
-                    {
-                        int pos = 0;
-                        while (s.find(variable, pos) != -1)
-                        {
-                            string s1 = s.substr(0, s.find(variable, pos));
-                            string s2 = s.substr(s.find(variable, pos) + 1);
-                            pos = s.find(variable, pos) + 1;
-                            string fin = s1 + s2;
-                            if (fin.empty() || (fin.length() == 1 && fin[0] == prRule.first))
-                                continue;
-                            newRule.insert(fin);
-                        }
-                        if (s == "$" || (s.length() == 1 && s[0] == prRule.first))
-                            continue;
-                        newRule.insert(s);
-                    }
-                    cFG->productionRules[prRule.first] = newRule;
-                }
-    }
-
-    void removeNotAvailable()
-    {
-        unordered_set<char> vTemp;
-
-        queue<char> q;
-        q.push(this->startVariable);
-
-        while (!q.empty())
-        {
-            char u = q.front();
-            q.pop();
-            vTemp.insert(u);
-
-            for (string s : productionRules[u])
-                for (char c : s)
-                    if (vTemp.find(c) == vTemp.end() && variables.find(c) != variables.end())
-                        q.push(c);
-        }
-
-        contextFreeGrammerForParsing = new ContextFreeGrammer(vTemp, terminals, startVariable);
-
-        for (char v : variables)
-            if (vTemp.find(v) != vTemp.end())
-                contextFreeGrammerForParsing->productionRules[v] = productionRules[v];
-    }
-
-    void removeUnitRules()
-    {
-        ContextFreeGrammer *cFG = this->contextFreeGrammerForParsing;
-        for (char v : cFG->variables)
-            for (string s : cFG->productionRules[v])
-                if (s.size() == 1 && cFG->variables.find(s[0]) != cFG->variables.end())
-                    for (pair<char, unordered_set<string>> prRule : cFG->productionRules)
-                    {
-                        unordered_set<string> newRule;
-                        for (string su : prRule.second)
-                        {
-                            int pos = 0;
-                            while (su.find(v, pos) != -1)
-                            {
-                                string s1 = su.substr(0, su.find(v, pos));
-                                string s2 = su.substr(su.find(v, pos) + 1);
-                                pos = su.find(v, pos) + 1;
-                                string fin = s1 + s + s2;
-                                newRule.insert(fin);
-                            }
-                            newRule.insert(su);
-                        }
-                        cFG->productionRules[prRule.first] = newRule;
-                    }
-
-        for (char v : cFG->variables)
-        {
-            unordered_set<string> tmp;
-            for (string s : cFG->productionRules[v])
-                if (s.size() == 1 && cFG->variables.find(s[0]) != cFG->variables.end())
-                    tmp.insert(s);
-
-            for (string s : tmp)
-                cFG->productionRules[v].erase(s);
-        }
-    }
-
-    void makeContextFreeGrammerForParsing()
-    {
-        removeNotAvailable();
-        removeLambda();
-        removeUnitRules();
-    }
-
-    void makeChomsky()
-    {
-        makeContextFreeGrammerForParsing();
-        this->chomsky = new ContextFreeGrammer(variables, terminals, startVariable);
-        this->chomsky->lambda = this->lambda;
-
-        int tIdx = 0, vIdx = 0;
-        unordered_map<char, char> TtoV;
-        for (char t : terminals)
-        {
-            char u = findVariable();
-            variables.insert(u);
-            TtoV[t] = u;
-            this->chomsky->productionRules[u].insert(string(1, t));
-            chomsky->variables.insert(u);
-        }
-
-        ContextFreeGrammer *CFP = this->contextFreeGrammerForParsing;
-        for (pair<char, unordered_set<string>> v : CFP->productionRules)
-        {
-            for (string s : v.second)
-            {
-                for (int i = 0; s.length() > 1 && i < s.length(); i++)
-                {
-                    if (CFP->terminals.find(s[i]) != CFP->terminals.end())
-                        s[i] = TtoV[s[i]];
-                }
-
-                char lst;
-                for (int i = 0; s.length() > 2 && i < s.length() - 1; i++)
-                {
-                    if (i == 0)
-                    {
-                        lst = findVariable();
-                        chomsky->productionRules[v.first].insert(string(1, s[i]) + lst);
-                    }
-                    else if (i == s.length() - 2)
-                    {
-                        chomsky->productionRules[lst].insert(string(1, s[s.length() - 2]) + string(1, s[s.length() - 1]));
-                        chomsky->variables.insert(lst);
-                    }
-                    else
-                    {
-                        chomsky->variables.insert(lst);
-                        char nLst = findVariable();
-                        chomsky->productionRules[lst].insert(string(1, s[i]) + string(1, nLst));
-                        lst = nLst;
-                    }
-                }
-
-                if (s.length() <= 2)
-                    chomsky->productionRules[v.first].insert(s);
-            }
-        }
-    }
+    char input;
+    int to;
+    node *next;
 };
+
+int prec(char c)
+{
+    if (c == '*')
+    {
+        return 3;
+    }
+    else if (c == '.')
+    {
+        return 2;
+    }
+    else if (c == '+')
+    {
+        return 1;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+string post(string s)
+{
+    stack<char> st;
+    st.push('N');
+    int l = s.length();
+    string ns;
+    for (int i = 0; i < l; i++)
+    {
+        if ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z'))
+        {
+            ns += s[i];
+        }
+
+        else if (s[i] == '(')
+        {
+            st.push('(');
+        }
+        else if (s[i] == ')')
+        {
+            while (st.top() != 'N' && st.top() != '(')
+            {
+                char c = st.top();
+                st.pop();
+                ns += c;
+            }
+            if (st.top() == '(')
+            {
+                char c = st.top();
+                st.pop();
+            }
+        }
+        else
+        {
+            while (st.top() != 'N' && prec(s[i]) <= prec(st.top()))
+            {
+                char c = st.top();
+                st.pop();
+                ns += c;
+            }
+            st.push(s[i]);
+        }
+    }
+    while (st.top() != 'N')
+    {
+        char c = st.top();
+        st.pop();
+        ns += c;
+    }
+    return ns;
+}
+
+void printnode(vector<node *> v)
+{
+    cout << "___________________________________________" << endl;
+    cout << "| from state\t| input\t| tostates" << endl;
+    for (int i = 0; i < v.size(); i++)
+    {
+        cout << "| " << i << "          \t|";
+        node *head = v[i];
+        cout << head->input;
+        bool first = true;
+        while (head != NULL)
+        {
+            if (first)
+            {
+                cout << "     \t|";
+                first = false;
+            }
+            else
+            {
+                cout << "     \t";
+            }
+            cout << head->to;
+            head = head->next;
+        }
+        cout << endl;
+        // cout<<"\t\t\t\t\t\t|"<<endl;
+    }
+    cout << "___________________________________________" << endl;
+}
+
+node *makenode(char in)
+{
+    node *a = new node;
+    a->input = in;
+    a->to = -1;
+    a->next = NULL;
+    return a;
+}
+
+node *copynode(node *a)
+{
+    node *b = new node;
+    b->input = -1;
+    b->to = -1;
+    b->next = NULL;
+    return b;
+}
+
+void andd(vector<node *> &v, vector<vector<int>> &st)
+{
+    int x, y;
+    int first, last1;
+    y = st[st.size() - 1][0];
+    x = st[st.size() - 2][1];
+    first = st[st.size() - 2][0];
+    last1 = st[st.size() - 1][1];
+
+    st.pop_back();
+    st.pop_back();
+
+    vector<int> ptemp;
+    ptemp.push_back(first);
+    ptemp.push_back(last1);
+    st.push_back(ptemp);
+
+    node *last = v[y];
+    node *lnode = v[x];
+    node *temp = copynode(last);
+
+    while (lnode->next != NULL)
+    {
+        lnode = lnode->next;
+    }
+    lnode->next = temp;
+    lnode->to = y;
+}
+
+void orr(vector<node *> &v, vector<vector<int>> &st)
+{
+    int x, y, x1, y1;
+    x = st[st.size() - 2][0];
+    y = st[st.size() - 1][0];
+    x1 = st[st.size() - 2][1];
+    y1 = st[st.size() - 1][1];
+    node *start = makenode('e');
+    node *end = makenode('e');
+    v.push_back(start);
+    int firstnode = v.size() - 1;
+    v.push_back(end);
+    int endnode = v.size() - 1;
+
+    st.pop_back();
+    st.pop_back();
+
+    vector<int> ptemp;
+    ptemp.push_back(firstnode);
+    ptemp.push_back(endnode);
+    st.push_back(ptemp);
+
+    for (int i = 0; i < v.size() - 2; i++)
+    {
+        node *h = v[i];
+        while (h->next != NULL)
+        {
+            if (h->to == x || h->to == y)
+            {
+                h->to = firstnode;
+            }
+            h = h->next;
+        }
+    }
+
+    node *temp = copynode(v[x]);
+    node *temp1 = copynode(v[y]);
+    node *t = v[firstnode];
+    while (t->next != NULL)
+    {
+        t = t->next;
+    }
+    t->to = x;
+    t->next = temp;
+    t->next->to = y;
+    t->next->next = temp1;
+
+    node *adlink = v[x1];
+    while (adlink->next != NULL)
+    {
+        adlink = adlink->next;
+    }
+
+    adlink->to = endnode;
+    adlink->next = copynode(end);
+
+    node *adlink1 = v[y1];
+    while (adlink1->next != NULL)
+    {
+        adlink1 = adlink1->next;
+    }
+    adlink1->to = endnode;
+    adlink1->next = copynode(end);
+}
+
+void closure(vector<node *> &v, vector<vector<int>> &st)
+{
+    int x, x1;
+    x = st[st.size() - 1][0];
+    x1 = st[st.size() - 1][1];
+    node *s = makenode('e');
+    v.push_back(s);
+    int firstnode = v.size() - 1;
+
+    st.pop_back();
+    vector<int> ptemp;
+    ptemp.push_back(x);
+    ptemp.push_back(firstnode);
+    st.push_back(ptemp);
+
+    for (int i = 0; i < v.size() - 2; i++)
+    {
+        node *h = v[i];
+        while (h->next != NULL)
+        {
+            if (h->to == x)
+            {
+                h->to = firstnode;
+            }
+            h = h->next;
+        }
+    }
+    node *t = v[x1];
+    while (t->next != NULL)
+    {
+        t = t->next;
+    }
+    t->to = x;
+    t->next = copynode(t);
+    t->next->to = firstnode;
+    t->next->next = copynode(s);
+}
+
+// int main()
+// {
+//     string in;
+//     cout << "Enter a regular expression\n";
+//     cin >> in;
+//     string o;
+//     vector<node*> v;
+//     o = post(in);
+//     cout << "\npostfix expression is " << o << endl;
+//     vector<vector<int>> st;
+//     int firstnode = 0;
+//     for (int l = 0; l < o.length(); l++)
+//     {
+//         if (o[l] != '+' && o[l] != '*' && o[l] != '.')
+//         {
+//             node *temp = makenode(o[l]);
+//             v.push_back(temp);
+//             vector<int> ptemp;
+//             ptemp.push_back(v.size() - 1);
+//             ptemp.push_back(v.size() - 1);
+//             st.push_back(ptemp);
+//         }
+//         else if (o[l] == '.')
+//         {
+//             andd(v, st);
+//         }
+//         else if (o[l] == '+')
+//         {
+//             orr(v, st);
+//         }
+//         else if (o[l] == '*')
+//         {
+//             closure(v, st);
+//         }
+//     }
+//     cout << "\ntrainsition table for given regular expression is - \n";
+//     printnode(v);
+//     cout << endl;
+//     cout << "starting node is ";
+//     cout << st[st.size() - 1][0] << endl;
+//     cout << "ending node is ";
+//     cout << st[st.size() - 1][1] << endl;
+//     return 0;
+// }
 
 int main()
 {
-    /*State *s1 = new State("1", false);
-    State *s2 = new State("2", false);
-    State *s3 = new State("3", true);
-    set<State *> Q = {s1, s2, s3};
+    // cout << convert("a.(a.b)*.(a+b)") <<endl;
+    State *s1 = new State("S", false);
+    State *s2 = new State("V", false);
+    State *s3 = new State("R", true);
+    State *s4 = new State("K", false);
+
+    set<State *> Q = {s1, s2, s3, s4};
 
     set<char> alph = {'a', 'b'};
     State *q0 = s1;
@@ -253,30 +332,29 @@ int main()
 
     map<Transfer *, set<State *>> transferFunctions;
     Transfer *transfer1 = new Transfer(s1, 'a');
-    Transfer *transfer2 = new Transfer(s1, '$');
+    Transfer *transfer2 = new Transfer(s2, 'a');
     Transfer *transfer3 = new Transfer(s2, 'b');
-    Transfer *transfer5 = new Transfer(s3, 'a');
-    Transfer *transfer6 = new Transfer(s3, 'b');
-    Transfer *transfer4 = new Transfer(s3, '$');
+    Transfer *transfer5 = new Transfer(s4, 'b');
 
-    transferFunctions[transfer1] = {s2, s3};
-    transferFunctions[transfer2] = {s2};
-    transferFunctions[transfer3] = {s2};
-    transferFunctions[transfer4] = {s3};
-    transferFunctions[transfer5] = {s3};
-    transferFunctions[transfer6] = {s3};
+    transferFunctions[transfer1] = {s2};
+    transferFunctions[transfer2] = {s4};
+    transferFunctions[transfer3] = {s3};
+    transferFunctions[transfer5] = {s1};
 
     NFA *dfa = new NFA(Q, alph, q0, finals, transferFunctions);
-    cout << dfa->acceptance("$$$a", 0, q0);*/
-    
-    unordered_set<char> variables = {'S', 'A', 'B'};
-    unordered_set<char> terminals = {'a', 'b'};
-    char startVariable = 'S';
-    unordered_map<char, unordered_set<string>> productionRules;
-    productionRules['S'] = {"AB"};
-    productionRules['A'] = {"a", "BB"};
-    productionRules['B'] = {"AB", "b"};
-    ContextFreeGrammer *cfg = new ContextFreeGrammer(variables, terminals, startVariable, productionRules);
-    cout << cfg->parsing("aabb");
-    return 0;
+    ContextFreeGrammer *cfg = dfa->convertToGFG();
+    cfg->makeContextFreeGrammerForParsing();
+    cfg->makeChomsky();
+    cout << 4;
+
+                              // unordered_set<char> variables = {'S', 'A', 'B'};
+                              // unordered_set<char> terminals = {'a', 'b'};
+                              // char startVariable = 'S';
+                              // unordered_map<char, unordered_set<string>> productionRules;
+                              // productionRules['S'] = {"AB"};
+                              // productionRules['A'] = {"a", "BB"};
+                              // productionRules['B'] = {"AB", "b"};
+                              // ContextFreeGrammer *cfg = new ContextFreeGrammer(variables, terminals, startVariable, productionRules);
+                              // cout << cfg->parsingCYK("aab");
+                              return 0;
 }

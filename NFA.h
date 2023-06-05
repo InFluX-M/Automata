@@ -3,36 +3,12 @@
 //
 #include <bits/stdc++.h>
 #include "Base.h"
+#include "ContextFreeGammer.h";
+
 using namespace std;
 
 #ifndef AUTOMATA_NFA_H
 #define AUTOMATA_NFA_H
-class TransferNFATODFA
-{
-public:
-    set<State *> q;
-    char c;
-
-    TransferNFATODFA(set<State*> q, char c)
-    {
-        this->q = q;
-        this->c = c;
-    }
-};
-class NFATODFA
-{
-public:
-    set<set<State *>> Q;
-    set<char> alphabet;
-    set<State*> q0;
-    set<set<State *>> finals;
-    map<TransferNFATODFA *, set<State *>> transferFunctions;
-
-    NFATODFA(set<set<State *>> &q, set<char> &alphabet, set<State*>& q0, set<set<State *>> &finals,
-             map<TransferNFATODFA *, set<State *>> &transferFunctions) : Q(q), alphabet(alphabet), q0(std::move(q0)), finals(finals),
-    transferFunctions(transferFunctions) {}
-};
-
 class NFA
 {
 public:
@@ -49,7 +25,8 @@ public:
     {
         for (pair<Transfer *, set<State *>> t : transferFunctions)
         {
-            if(t.first==nullptr)continue;
+            if (t.first == nullptr)
+                continue;
             if (t.first->q == state && t.first->c == c)
                 return t.first;
         }
@@ -69,80 +46,34 @@ public:
         return accept;
     }
 
-    void setQ0NFAToDFA(set<State*>& q01, State* q)
+    ContextFreeGrammer *convertToGFG()
     {
-        for(State* state : this->transferFunctions[search(q, '$')])
+        unordered_set<char> variables;
+        unordered_set<char> terminals;
+        char startVariable;
+        unordered_map<char, unordered_set<string>> productionRules;
+
+        for (State *s : this->Q)
+            variables.insert(s->id[0]);
+
+        for (char c : this->alphabet)
+            terminals.insert(c);
+
+        startVariable = this->q0->id[0];
+
+        for (pair<Transfer *, set<State *>> tS : this->transferFunctions)
         {
-            q01.insert(state);
-            setQ0NFAToDFA(q01, state);
-        }
-    }
-
-    TransferNFATODFA* transferNfatodfa1(set<State*>& s, char c, map<TransferNFATODFA *, set<State *>>& transferFunctions1)
-    {
-        for(pair<TransferNFATODFA *, set<State *>> t : transferFunctions1)
-            if(t.first->q == s && t.first->c == c)
-                return t.first;
-
-        return nullptr;
-    }
-
-    /*DFA *NFAToDFA()
-    {
-        map<set<State*>, bool> status;
-        set<set<State *>> Q1;
-        set<char> alphabet1 = alphabet;
-        set<State*> q01;
-        set<set<State *>> finals1;
-        map<TransferNFATODFA *, set<State *>> transferFunctions1;
-
-        q01.insert(q0);
-        setQ0NFAToDFA(q01, q0);
-
-        NFATODFA* nfaTodfa = new NFATODFA(Q1, alphabet1, q01, finals1, transferFunctions1);
-
-        nfaTodfa->Q.insert(nfaTodfa->q0);
-        queue<set<State*>> queue;
-        queue.push(nfaTodfa->q0);
-
-        while (!queue.empty())
-        {
-            set<State*> t = queue.front();
-            status[t] = true;
-
-            for(char c : alphabet1)
+            for (State *sT : tS.second)
             {
-                set<State*> all;
-                for(State* state : t)
-                {
-                    for(State* state1 : transferFunctions[search(state, c)])
-                        all.insert(state1);
-                }
-
-                if(nfaTodfa->Q.find(all) == nfaTodfa->Q.end())
-                {
-                    nfaTodfa->Q.insert(all);
-                    queue.push(all);
-
-                    for(char c1 : alphabet1)
-                    {
-                        TransferNFATODFA* transferNfatodfa = new TransferNFATODFA(all, c1);
-                        nfaTodfa->transferFunctions[transferNfatodfa] = {};
-                    }
-
-                    nfaTodfa->transferFunctions[transferNfatodfa1(t, c, transferFunctions1)] = all;
-                }
-                else
-                {
-                    nfaTodfa->transferFunctions[transferNfatodfa1(t, c, transferFunctions1)] = all;
-                    if(!status[all])
-                        queue.push(all);
-                }
+                productionRules[tS.first->q->id[0]].insert(string(1, tS.first->c) + string(1, sT->id[0]));
             }
-
         }
 
-        cout << "Hi";
-    }*/
+        for (State *s : this->Q)
+            if (s->final)
+                productionRules[s->id[0]].insert("$");
+
+        return new ContextFreeGrammer(variables, terminals, startVariable, productionRules);
+    }
 };
-#endif //AUTOMATA_NFA_H
+#endif // AUTOMATA_NFA_H
