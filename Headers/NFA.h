@@ -3,7 +3,7 @@
 //
 #include <bits/stdc++.h>
 #include "Base.h"
-#include "ContextFreeGammer.h";
+#include "ContextFreeGammer.h"
 
 using namespace std;
 
@@ -62,12 +62,8 @@ public:
         startVariable = this->q0->id[0];
 
         for (pair<Transfer *, set<State *>> tS : this->transferFunctions)
-        {
             for (State *sT : tS.second)
-            {
                 productionRules[tS.first->q->id[0]].insert(string(1, tS.first->c) + string(1, sT->id[0]));
-            }
-        }
 
         for (State *s : this->Q)
             if (s->final)

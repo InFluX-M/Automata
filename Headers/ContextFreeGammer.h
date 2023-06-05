@@ -70,10 +70,32 @@ public:
 
     bool parsingRegular(string s)
     {
-        
     }
 
 private:
+    // void makeSimpleRegular()
+    // {
+    //     unordered_set<char> q;
+    //     for (pair<char, unordered_set<string>> p : this->productionRules)
+    //     {
+    //         bool flag = true;
+    //         for (string s : p.second)
+    //         {
+    //             for (char c : s)
+    //                 if (variables.find(c) != variables.end())
+    //                 {
+    //                     flag = false;
+    //                     break;
+    //                 }
+    //         }
+    //         if (flag)
+    //             q.insert(p.first);
+    //     }
+
+    //     unordered_map<char, unordered_set<string>> productionRules;
+    //     for()
+    // }
+
     char findVariable()
     {
         for (int i = 'A'; i <= 'Z'; i++)

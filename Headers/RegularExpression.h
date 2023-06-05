@@ -4,7 +4,7 @@
 #include <bits/stdc++.h>
 #include "Base.h"
 #include "NFA.h"
-#include "ContextFreeGammer.h";
+#include "ContextFreeGammer.h"
 
 using namespace std;
 
@@ -64,16 +64,12 @@ public:
         unordered_map<char, unordered_set<string>> productionRules;
 
         for (pair<char, unordered_set<string>> p : cfg->productionRules)
-        {
             for (string s : p.second)
             {
                 if (s.size() == 1)
-                {
                     productionRules[p.first].insert(s + cfg->startVariable);
-                }
                 productionRules[p.first].insert(s);
             }
-        }
         productionRules[cfg->startVariable].insert("$");
         cfg->productionRules = productionRules;
     }
@@ -83,12 +79,14 @@ public:
         for (int i = 'A'; i <= 'Z'; i++)
             if (v1.find(char(i)) == v1.end() && v2.find(char(i)) == v2.end())
                 return char(i);
+        return '$';
     }
 
     void kleeneConcat(ContextFreeGrammer *cfg, ContextFreeGrammer *cfg1)
     {
         for (char t : cfg1->terminals)
             cfg->terminals.insert(t);
+
         for (char v : cfg1->variables)
         {
             if (cfg->variables.find(v) != cfg->variables.end())
@@ -99,15 +97,10 @@ public:
                     cfg1->startVariable = nVar;
 
                 for (pair<char, unordered_set<string>> p : cfg1->productionRules)
-                {
                     for (string s : p.second)
-                    {
                         if (s.back() == v)
-                        {
                             s[s.size() - 1] = nVar;
-                        }
-                    }
-                }
+
 
                 unordered_set<string> ss = cfg1->productionRules[v];
                 cfg1->productionRules.erase(v);
@@ -149,6 +142,7 @@ public:
     {
         for (char t : cfg1->terminals)
             cfg->terminals.insert(t);
+
         for (char v : cfg1->variables)
         {
             if (cfg->variables.find(v) != cfg->variables.end())
@@ -161,27 +155,17 @@ public:
                 cfg1->variables.insert(nVar);
 
                 for (pair<char, unordered_set<string>> p : cfg->productionRules)
-                {
                     for (string s : p.second)
-                    {
                         if (s.back() == v)
-                        {
                             s[s.size() - 1] = nVar;
-                        }
-                    }
-                }
             }
             else
                 cfg->variables.insert(v);
         }
 
         for (pair<char, unordered_set<string>> p : cfg1->productionRules)
-        {
             for (string s : p.second)
-            {
                 cfg->productionRules[p.first].insert(s);
-            }
-        }
 
         char nStart = findFreeVariable(cfg->variables, cfg1->variables);
 
@@ -193,40 +177,36 @@ public:
         cfg->productionRules[nStart].insert(string(1, s2));
     }
 
-    ContextFreeGrammer *CV(string s)
+    ContextFreeGrammer *CV(string regex)
     {
-        if (s.length() == 1)
+        if (regex.length() == 1)
         {
             unordered_set<char> variables;
             unordered_set<char> terminals;
             char startVariable = 'A';
             unordered_map<char, unordered_set<string>> productionRules;
             variables.insert('A');
-            terminals.insert(s[0]);
+            terminals.insert(regex[0]);
             startVariable = 'A';
-            productionRules['A'].insert(string(1, s[0]));
+            productionRules['A'].insert(string(1, regex[0]));
             ContextFreeGrammer *cfg = new ContextFreeGrammer(variables, terminals, startVariable, productionRules);
             return cfg;
         }
-        pair<vector<string>, vector<char>> p = process(s);
+
+        pair<vector<string>, vector<char>> p = process(regex);
 
         vector<ContextFreeGrammer *> grammers;
         for (string r : p.first)
-        {
             grammers.push_back(CV(r));
-        }
-
+    
         for (int i = 0; i < grammers.size(); i++)
-        {
             if (p.second[i] == '*')
             {
                 kleeneStar(grammers[i]);
                 p.second.erase(p.second.begin() + i);
             }
-        }
 
         for (int i = 0; i < grammers.size() && grammers.size() > 1; i++)
-        {
             if (p.second[i] == '.')
             {
                 kleeneConcat(grammers[i], grammers[i + 1]);
@@ -234,10 +214,8 @@ public:
                 grammers.erase(grammers.begin() + i + 1);
                 i--;
             }
-        }
 
         for (int i = 0; i < grammers.size(); i++)
-        {
             if (p.second[i] == '+')
             {
                 kleeneChoose(grammers[i], grammers[i + 1]);
@@ -245,7 +223,6 @@ public:
                 grammers.erase(grammers.begin() + i + 1);
                 i--;
             }
-        }
 
         return grammers[0];
     }
