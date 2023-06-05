@@ -68,11 +68,12 @@ public:
             return false;
     }
 
-    // bool parsingRegular(string s)
-    // {
-    // }
+    bool parsingRegular(string s)
+    {
+        
+    }
 
-    // private:
+private:
     char findVariable()
     {
         for (int i = 'A'; i <= 'Z'; i++)
