@@ -4,20 +4,41 @@
 #include "../Headers/Base.h"
 #include "../Headers/RegularExpression.h"
 #include "../Headers/ContextFreeGammer.h"
+#include <iostream>
+#include <fstream>
+#include <string>
+
 using namespace std;
 
 int main()
 {
-    string s = "((b)+(a))*.((a)+(b))";
-    RegularExpression *r = new RegularExpression(s);
-    ContextFreeGrammer *g = r->CV(s);
-    g->makeContextFreeGrammerForParsing();
-    g->makeChomsky();
-    while (true)
+    cout << "Input Regex: :))))\n";
+    
+    string regex;
+    cin >> regex;
+
+    RegularExpression *r = new RegularExpression(regex);
+    ContextFreeGrammer *g = r->CV(regex);
+
+    ofstream myfile;
+    myfile.open("../Files/results.txt");
+
+    string line;
+    ifstream myfiles("../Files/strings.txt");
+    if (myfiles.is_open())
     {
-        string y;
-        cin >> y;
-        cout << g->parsingCYK(y) << endl;
+        while (getline(myfiles, line))
+        {
+            if (g->parsingCYK(line))
+                myfile << "\"" + line + "\"" + "\n";
+            else
+                myfile << line + "\n";
+        }
+        myfiles.close();
+        myfile.close();
     }
+    else
+        cout << "Unable to open file";
+
     return 0;
 }

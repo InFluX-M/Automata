@@ -42,7 +42,7 @@ public:
             makeChomsky();
 
         if (s == "$")
-            return lambda;
+            return contextFreeGrammerForParsing->lambda;
 
         unordered_map<string, unordered_set<char>> cyk;
         for (int i = 0; i < s.length(); i++)
@@ -71,18 +71,6 @@ public:
         else
             return false;
     }
-
-    // bool parsingRegular(string s)
-    // {
-    //     char s = startVariable;
-    //     for (int i = 0; i < s.length(); i++)
-    //     {
-    //         for (string r : productionRules[s])
-    //         {
-    //             if (i == s.length() - 1)
-    //         }
-    //     }
-    // }
 
     void BFSforLevelVariable()
     {
@@ -248,10 +236,14 @@ public:
 
     void removeNotAvailable()
     {
+        ContextFreeGrammer *aim = contextFreeGrammerForParsing;
+        if (contextFreeGrammerForParsing == nullptr)
+            aim = this;
+            
         unordered_set<char> vTemp;
 
         queue<char> q;
-        q.push(this->startVariable);
+        q.push(aim->startVariable);
 
         while (!q.empty())
         {
@@ -259,17 +251,18 @@ public:
             q.pop();
             vTemp.insert(u);
 
-            for (string s : productionRules[u])
+            for (string s : aim->productionRules[u])
                 for (char c : s)
                     if (vTemp.find(c) == vTemp.end() && variables.find(c) != variables.end())
                         q.push(c);
         }
 
-        contextFreeGrammerForParsing = new ContextFreeGrammer(vTemp, terminals, startVariable);
+        if (contextFreeGrammerForParsing == nullptr)
+            contextFreeGrammerForParsing = new ContextFreeGrammer(vTemp, terminals, startVariable);
 
-        for (char v : variables)
+        for (char v : aim->variables)
             if (vTemp.find(v) != vTemp.end())
-                contextFreeGrammerForParsing->productionRules[v] = productionRules[v];
+                contextFreeGrammerForParsing->productionRules[v] = aim->productionRules[v];
     }
 
     void removeEmpty()
@@ -314,6 +307,7 @@ public:
         removeLambda();
         removeUnitRule();
         removeEmpty();
+        removeNotAvailable();
     }
 
     void makeChomsky()

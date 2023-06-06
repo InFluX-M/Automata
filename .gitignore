@@ -4,3 +4,5 @@
 !Sources
 !*.h
 !*.cpp
+!Files
+!*.txt
