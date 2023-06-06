@@ -16,7 +16,8 @@ public:
     unordered_map<char, unordered_set<string>> productionRules;
     ContextFreeGrammer *contextFreeGrammerForParsing;
     ContextFreeGrammer *chomsky;
-    ContextFreeGrammer *greibach;
+    unordered_map<char, int> variableLvl;
+    map<int, unordered_set<char>> levelVar;
     bool lambda;
 
     ContextFreeGrammer(unordered_set<char> variables, unordered_set<char> terminals, char startVariable,
@@ -39,6 +40,9 @@ public:
     {
         if (chomsky == nullptr)
             makeChomsky();
+
+        if (s == "$")
+            return lambda;
 
         unordered_map<string, unordered_set<char>> cyk;
         for (int i = 0; i < s.length(); i++)
@@ -68,39 +72,148 @@ public:
             return false;
     }
 
-    bool parsingRegular(string s)
-    {
-    }
-
-private:
-    // void makeSimpleRegular()
+    // bool parsingRegular(string s)
     // {
-    //     unordered_set<char> q;
-    //     for (pair<char, unordered_set<string>> p : this->productionRules)
+    //     char s = startVariable;
+    //     for (int i = 0; i < s.length(); i++)
     //     {
-    //         bool flag = true;
-    //         for (string s : p.second)
+    //         for (string r : productionRules[s])
     //         {
-    //             for (char c : s)
-    //                 if (variables.find(c) != variables.end())
-    //                 {
-    //                     flag = false;
-    //                     break;
-    //                 }
+    //             if (i == s.length() - 1)
     //         }
-    //         if (flag)
-    //             q.insert(p.first);
     //     }
-
-    //     unordered_map<char, unordered_set<string>> productionRules;
-    //     for()
     // }
+
+    void BFSforLevelVariable()
+    {
+        queue<char> q;
+        q.push(startVariable);
+        variableLvl[startVariable] = 0;
+        levelVar[0].insert(startVariable);
+
+        while (!q.empty())
+        {
+            char u = q.front();
+            q.pop();
+
+            for (string s : contextFreeGrammerForParsing->productionRules[u])
+            {
+                for (char c : s)
+                    if (variableLvl.find(c) == variableLvl.end() && variables.find(c) != variables.end())
+                    {
+                        q.push(c);
+                        variableLvl[c] = variableLvl[u] + 1;
+                        levelVar[variableLvl[c]].insert(c);
+                    }
+            }
+        }
+    }
 
     char findVariable()
     {
         for (int i = 'A'; i <= 'Z'; i++)
             if (chomsky->variables.find(char(i)) == chomsky->variables.end())
                 return char(i);
+    }
+
+    bool existUnitRule()
+    {
+        ContextFreeGrammer *cFG = this->contextFreeGrammerForParsing;
+        for (pair<char, unordered_set<string>> p : cFG->productionRules)
+        {
+            for (string s : p.second)
+            {
+                if (s.size() == 1 && cFG->variables.find(s[0]) != cFG->variables.end())
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    void removeUnitRule()
+    {
+        ContextFreeGrammer *cFG = this->contextFreeGrammerForParsing;
+        unordered_set<char> reachableStart;
+
+        while (existUnitRule())
+        {
+            BFSforLevelVariable();
+            bool fg = false;
+            for (map<int, unordered_set<char>>::reverse_iterator i = levelVar.rbegin(); i != levelVar.rend(); i++)
+            {
+                for (char v : (*i).second)
+                {
+                    for (string s : cFG->productionRules[v])
+                    {
+                        if (s.size() == 1 && cFG->variables.find(s[0]) != cFG->variables.end())
+                        {
+                            if (v == startVariable)
+                                reachableStart.insert(s[0]);
+
+                            unordered_map<char, unordered_set<string>> prNew;
+                            for (pair<char, unordered_set<string>> prRule : cFG->productionRules)
+                            {
+                                unordered_set<string> newRule;
+                                for (string su : prRule.second)
+                                {
+                                    int pos = 0;
+                                    while (su.find(v, pos) != -1)
+                                    {
+                                        string s1 = su.substr(0, su.find(v, pos));
+                                        string s2 = su.substr(su.find(v, pos) + 1);
+                                        pos = su.find(v, pos) + 1;
+                                        string fin = s1 + s + s2;
+                                        newRule.insert(fin);
+                                    }
+                                    newRule.insert(su);
+                                }
+                                prNew[prRule.first] = newRule;
+                            }
+                            prNew[v].erase(s);
+                            cFG->productionRules = prNew;
+                            removeEmpty();
+                            fg = true;
+                        }
+                        if (fg)
+                            break;
+                    }
+                    if (fg)
+                        break;
+                }
+                if (fg)
+                    break;
+            }
+        }
+
+        if (cFG->variables.find(cFG->startVariable) == cFG->variables.end())
+        {
+            unordered_map<char, unordered_set<string>> prNew;
+            for (pair<char, unordered_set<string>> p : cFG->productionRules)
+            {
+                for (string s : p.second)
+                {
+                    for (int i = 0; i < s.length(); i++)
+                    {
+                        if (reachableStart.find(s[i]) != reachableStart.end())
+                        {
+                            s[i] = cFG->startVariable;
+                        }
+                    }
+                    prNew[p.first].insert(s);
+                }
+            }
+
+            for (char t : reachableStart)
+            {
+                for (string s : prNew[t])
+                    prNew[cFG->startVariable].insert(s);
+
+                prNew.erase(t);
+            }
+
+            cFG->variables.insert(startVariable);
+            cFG->productionRules = prNew;
+        }
     }
 
     void removeLambda()
@@ -159,43 +272,6 @@ private:
                 contextFreeGrammerForParsing->productionRules[v] = productionRules[v];
     }
 
-    void removeUnitRules()
-    {
-        ContextFreeGrammer *cFG = this->contextFreeGrammerForParsing;
-        for (char v : cFG->variables)
-            for (string s : cFG->productionRules[v])
-                if (s.size() == 1 && cFG->variables.find(s[0]) != cFG->variables.end())
-                    for (pair<char, unordered_set<string>> prRule : cFG->productionRules)
-                    {
-                        unordered_set<string> newRule;
-                        for (string su : prRule.second)
-                        {
-                            int pos = 0;
-                            while (su.find(v, pos) != -1)
-                            {
-                                string s1 = su.substr(0, su.find(v, pos));
-                                string s2 = su.substr(su.find(v, pos) + 1);
-                                pos = su.find(v, pos) + 1;
-                                string fin = s1 + s + s2;
-                                newRule.insert(fin);
-                            }
-                            newRule.insert(su);
-                        }
-                        cFG->productionRules[prRule.first] = newRule;
-                    }
-
-        for (char v : cFG->variables)
-        {
-            unordered_set<string> tmp;
-            for (string s : cFG->productionRules[v])
-                if (s.size() == 1 && cFG->variables.find(s[0]) != cFG->variables.end())
-                    tmp.insert(s);
-
-            for (string s : tmp)
-                cFG->productionRules[v].erase(s);
-        }
-    }
-
     void removeEmpty()
     {
         unordered_set<char> vNew;
@@ -236,7 +312,7 @@ private:
     {
         removeNotAvailable();
         removeLambda();
-        removeUnitRules();
+        removeUnitRule();
         removeEmpty();
     }
 

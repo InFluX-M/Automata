@@ -66,7 +66,7 @@ public:
         for (pair<char, unordered_set<string>> p : cfg->productionRules)
             for (string s : p.second)
             {
-                if (s.size() == 1)
+                if (s.size() == 1 && s[0] >= 'a')
                     productionRules[p.first].insert(s + cfg->startVariable);
                 productionRules[p.first].insert(s);
             }
@@ -96,15 +96,27 @@ public:
                 if (cfg1->startVariable == v)
                     cfg1->startVariable = nVar;
 
+                unordered_map<char, unordered_set<string>> pTemp;
+
                 for (pair<char, unordered_set<string>> p : cfg1->productionRules)
+                {
+                    unordered_set<string> n;
                     for (string s : p.second)
+                    {
                         if (s.back() == v)
+                        {
                             s[s.size() - 1] = nVar;
+                        }
+                        n.insert(s);
+                    }
+                    pTemp[p.first] = n;
+                }
 
+                unordered_set<string> ss = pTemp[v];
+                pTemp.erase(v);
+                pTemp[nVar] = ss;
 
-                unordered_set<string> ss = cfg1->productionRules[v];
-                cfg1->productionRules.erase(v);
-                cfg1->productionRules[nVar] = ss;
+                cfg1->productionRules = pTemp;
             }
             else
                 cfg->variables.insert(v);
@@ -142,7 +154,7 @@ public:
     {
         for (char t : cfg1->terminals)
             cfg->terminals.insert(t);
-
+            
         for (char v : cfg1->variables)
         {
             if (cfg->variables.find(v) != cfg->variables.end())
@@ -151,13 +163,28 @@ public:
                 cfg->variables.insert(nVar);
                 if (cfg1->startVariable == v)
                     cfg1->startVariable = nVar;
-                cfg1->variables.erase(v);
-                cfg1->variables.insert(nVar);
 
-                for (pair<char, unordered_set<string>> p : cfg->productionRules)
+                unordered_map<char, unordered_set<string>> pTemp;
+
+                for (pair<char, unordered_set<string>> p : cfg1->productionRules)
+                {
+                    unordered_set<string> n;
                     for (string s : p.second)
+                    {
                         if (s.back() == v)
+                        {
                             s[s.size() - 1] = nVar;
+                        }
+                        n.insert(s);
+                    }
+                    pTemp[p.first] = n;
+                }
+
+                unordered_set<string> ss = pTemp[v];
+                pTemp.erase(v);
+                pTemp[nVar] = ss;
+
+                cfg1->productionRules = pTemp;
             }
             else
                 cfg->variables.insert(v);
@@ -198,7 +225,7 @@ public:
         vector<ContextFreeGrammer *> grammers;
         for (string r : p.first)
             grammers.push_back(CV(r));
-    
+
         for (int i = 0; i < grammers.size(); i++)
             if (p.second[i] == '*')
             {
@@ -215,7 +242,7 @@ public:
                 i--;
             }
 
-        for (int i = 0; i < grammers.size(); i++)
+        for (int i = 0; i < grammers.size() && grammers.size() > 1; i++)
             if (p.second[i] == '+')
             {
                 kleeneChoose(grammers[i], grammers[i + 1]);
